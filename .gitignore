@@ -133,3 +133,12 @@ settings.ini
 
 # Resources
 /resources
+
+# Models
+models/
+
+# Tensorflow logs
+tf_logs/
+
+# NumPy data
+*.npy

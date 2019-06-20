@@ -5,6 +5,86 @@ import numpy as np
 import tensorflow as tf
 
 
+class DistributedRepresentations:
+    """Distributed Represendations of the words.
+
+    Args:
+        words (list): List of words
+        vectors (numpy.array): Vectors encoded words
+
+    Attributes:
+        vecs (numpy.array): Vectors encoded words
+        words (list): List of words
+    """
+    def __init__(self, words, vectors):
+        self.words = words
+        self.vecs = vectors
+
+    @property
+    def normalized_vecs(self):
+        return self.vecs / \
+            np.linalg.norm(self.vecs, axis=1).reshape(
+                [self.vecs.shape[0], 1],
+            )
+
+    def inspect(self):
+        rels = np.dot(self.normalized_vecs, self.normalized_vecs.T)
+        printoptions = np.get_printoptions()
+        np.set_printoptions(linewidth=200, precision=6)
+        for word, vec in zip(self.words, rels):
+            print(f'{word + ":":8s} {vec}')
+        np.set_printoptions(**printoptions)
+
+    def cos_similarity(self, x, y, eps=1e-8):
+        return np.dot(x, y) / (np.linalg.norm(x) + eps) \
+            / (np.linalg.norm(y) + eps)
+
+    def words_similarity(self, word1, word2, eps=1e-8):
+        x, y = [self.vecs[i]
+                for i in [self.words.index(word) for word in [word1, word2]]]
+        return self.cos_similarity(x, y, eps=eps)
+
+    def most_similar(self, word, top=5):
+        try:
+            word_id = self.words.index(word)
+        except ValueError:
+            print(f"'{word}' is not found.")
+            return
+        print(f'\n[query]: {word}')
+        word_vec = self.vecs[word_id]
+        similarity = [[w, self.cos_similarity(word_vec, self.vecs[i])]
+                      for i, w in enumerate(self.words) if i != word_id]
+        similarity.sort(key=lambda sim: sim[1], reverse=True)
+        for s in similarity[:top]:
+            print(f' {s[0]}: {s[1]}')
+
+    def analogy(self, a, b, c, top=5, answer=None):
+        try:
+            a_vec, b_vec, c_vec = \
+                self.vecs[[self.words.index(word) for word in (a, b, c)]]
+        except ValueError as err:
+            print(err)
+            return
+
+        print(f'{a}:{b} = {c}:?')
+        query_vec = b_vec - a_vec + c_vec
+        if answer is not None:
+            try:
+                answer_id = self.words.index(answer)
+                print(
+                    f'  ==> {answer}: '
+                    f'{self.cos_similarity(self.vecs[answer_id], query_vec)}'
+                )
+            except ValueError as err:
+                print(err)
+        similarity = [[w, self.cos_similarity(query_vec, self.vecs[i])]
+                      for i, w in enumerate(self.words)]
+        similarity.sort(key=lambda sim: sim[1], reverse=True)
+        for s in similarity[:top]:
+            print(f'  {s[0]}: {s[1]}')
+        print()
+
+
 class SimpleCBOW:
     """Simple CBOW model.
 
@@ -12,41 +92,10 @@ class SimpleCBOW:
         words (list): List of words
         words_size (int): Size of `words`
         corpus (list): Corpus
-        word_vectors (:obj:`WordVectors`): Results of model. You can reforence
-            after call `train` method.
+        word_reps (:obj:`DistributedRepresentations`): Results of model.
+            You can reforence after call `train` method.
     """
-
-    class WordVectors:
-        """Result Structure of Word2Vec (CBOW).
-
-        Args:
-            words (list): List of words
-            vectors (numpy.array): Vectors encoded words
-            cee (float): Cross entropy error
-
-        Attributes:
-            cee (float): Cross entropy error
-            vecs (numpy.array): Vectors encoded words
-            words (list): List of words
-        """
-        def __init__(self, words, vectors, cee):
-            self.words = words
-            self.cee = cee
-            self.vecs = vectors
-
-        @property
-        def normalized_vecs(self):
-            return self.vecs / \
-                np.linalg.norm(self.vecs, axis=1).reshape(
-                    [self.vecs.shape[0], 1],
-                )
-
-        def inspect(self):
-            rels = np.dot(self.normalized_vecs, self.normalized_vecs.T)
-            np.set_printoptions(linewidth=200)
-            print(self.cee)
-            for word, vec in zip(self.words, rels):
-                print(f'{word + ":":8s} {vec}')
+    eps = 1e-8
 
     @classmethod
     def create_from_text(cls, text):
@@ -96,14 +145,14 @@ class SimpleCBOW:
                 labels,
                 contexts.shape[0],
             )
+        if not hasattr(self, 'cl'):
+            self.cl = np.concatenate(
+                [contexts, labels.reshape((-1, 1))],
+                axis=1,
+            )
+            self.data_size = self.cl.shape[0]
         if batch_i == 0:
-            if epoch_i == 0:
-                self.cl = np.concatenate(
-                    [contexts, labels.reshape((-1, 1))],
-                    axis=1,
-                )
-                self.data_size = self.cl.shape[0]
-            tf.random.shuffle(self.cl)
+            np.random.shuffle(self.cl)
         start_id = batch_size * batch_i
         end_id = min(start_id + batch_size, self.data_size)
         return (
@@ -189,14 +238,14 @@ class SimpleCBOW:
                 target,
                 self.words_size,
                 dtype=tf.float32,
-            ) * tf.log(pred), name='CEE'
+            ) * tf.log(pred + self.__class__.eps), name='CEE'
         ) / batch_size
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         self.training_op = optimizer.minimize(self.cee)
         self.cee_summary = tf.summary.scalar('CEE', self.cee)
 
     def train(self, log_dir=None, max_epoch=10000, learning_rate=0.001,
-              batch_size=None):
+              batch_size=None, restore_epoch=None):
         """Train CBOW model.
 
         Args:
@@ -215,33 +264,23 @@ class SimpleCBOW:
             init = tf.global_variables_initializer()
             saver = tf.train.Saver()
             with tf.Session() as sess:
-                sess.run(init)
+                if restore_epoch is None:
+                    sess.run(init)
+                    first_epoch = 0
+                else:
+                    saver.restore(
+                        sess,
+                        os.path.join(log_dir, f'model.chpt-{restore_epoch}'),
+                    )
+                    first_epoch = restore_epoch
                 contexts = self.get_contexts()
                 labels = self.get_target()
-                feed_dict = {
-                    self.contexts: contexts,
-                    self.labels: labels,
-                    self.batch_size: contexts.shape[0],
-                    self.learning_rate: learning_rate,
-                }
-                self.word_vectors = \
-                    self.WordVectors(self.words,
-                                     *sess.run([self.W_in, self.cee],
-                                               feed_dict=feed_dict,))
+                self.word_reps = DistributedRepresentations(
+                    self.words,
+                    sess.run(self.W_in))
                 n_batches = 1 if batch_size is None \
                     else int(np.ceil(len(labels) / batch_size))
-                for epoch_i in range(max_epoch):
-                    summary_str = self.cee_summary.eval(feed_dict=feed_dict)
-                    writer.add_summary(summary_str, epoch_i)
-                    if epoch_i % 500 == 0:
-                        vectors, cee = sess.run([self.W_in, self.cee],
-                                                feed_dict=feed_dict)
-                        saver.save(sess,
-                                   os.path.join(os.path.dirname(__file__),
-                                                'models/model.chpt'))
-                        print(f'Epoch {epoch_i:04d}: CEE = {cee}')
-                        self.word_vectors.vecs = vectors
-                        self.word_vectors.cee = cee
+                for epoch_i in range(first_epoch, max_epoch):
                     for batch_i in range(n_batches):
                         c, l, b = self.fetch_batch(contexts, labels,
                                                    epoch_i, batch_i,
@@ -252,6 +291,18 @@ class SimpleCBOW:
                             self.batch_size: b,
                             self.learning_rate: learning_rate,
                         }
+                        if batch_i == 0:
+                            summary_str = self.cee_summary.eval(feed_dict=fd)
+                            writer.add_summary(summary_str, epoch_i)
+                            if epoch_i % 1 == 0:
+                                vectors, cee = sess.run([self.W_in, self.cee],
+                                                        feed_dict=fd)
+                                saver.save(
+                                    sess,
+                                    os.path.join(log_dir, 'model.chpt'),
+                                    global_step=epoch_i,
+                                )
+                                print(f'Epoch {epoch_i:04d}: CEE = {cee}')
+                                self.word_reps.vecs = vectors
                         sess.run(self.training_op, feed_dict=fd)
-                self.word_vectors.vecs, self.word_vectors.cee = \
-                    sess.run([self.W_in, self.cee], feed_dict=feed_dict)
+                self.word_reps.vecs = sess.run(self.W_in)

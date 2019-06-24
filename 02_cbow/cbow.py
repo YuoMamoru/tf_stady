@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.compat import v1 as tfv1
 
 from word2vec import DistributedRepresentations
 
@@ -91,31 +92,31 @@ class CBOW:
         """
         self.window_size = window_size
         self.hidden_size = hidden_size
-        self.learning_rate = tf.placeholder(tf.float32, name='learning_rate')
+        self.learning_rate = tfv1.placeholder(tf.float32, name='learning_rate')
 
         self.W_in = tf.Variable(
-            tf.random_uniform([self.words_size, self.hidden_size],
+            tf.random.uniform([self.words_size, self.hidden_size],
                               -1.0, 1.0, dtype=tf.float32),
             dtype=tf.float32,
             name='W_in',
         )
         self.W_out = tf.Variable(
-            tf.random_uniform([self.hidden_size, self.words_size],
+            tf.random.uniform([self.hidden_size, self.words_size],
                               -1.0, 1.0, dtype=tf.float32),
             dtype=tf.float32,
             name='W_out',
         )
-        contexts = tf.placeholder(
+        contexts = tfv1.placeholder(
             tf.int32,
             shape=(None, self.window_size*2),
             name='contexts',
         )
-        target = tf.placeholder(
+        target = tfv1.placeholder(
             tf.int32,
             shape=(None,),
             name='labels',
         )
-        batch_size = tf.placeholder(tf.float32, name='batch_size')
+        batch_size = tfv1.placeholder(tf.float32, name='batch_size')
         self.contexts = contexts
         self.labels = target
         self.batch_size = batch_size
@@ -145,9 +146,9 @@ class CBOW:
                 logits=logits,
             ), name='CEE',
         )
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        optimizer = tfv1.train.AdamOptimizer(learning_rate=self.learning_rate)
         self.training_op = optimizer.minimize(self.cee)
-        self.cee_summary = tf.summary.scalar('CEE', self.cee)
+        self.cee_summary = tfv1.summary.scalar('CEE', self.cee)
 
     def train(self, log_dir=None, max_epoch=10000, learning_rate=0.001,
               batch_size=None, restore_epoch=None):
@@ -165,10 +166,11 @@ class CBOW:
             log_dir = os.path.join(os.path.dirname(__file__),
                                    'tf_logs',
                                    datetime.utcnow().strftime('%Y%m%d%H%M%S'))
-        with tf.summary.FileWriter(log_dir, tf.get_default_graph()) as writer:
-            init = tf.global_variables_initializer()
-            saver = tf.train.Saver()
-            with tf.Session() as sess:
+        with tfv1.summary.FileWriter(log_dir,
+                                     tfv1.get_default_graph()) as writer:
+            init = tfv1.global_variables_initializer()
+            saver = tfv1.train.Saver()
+            with tfv1.Session() as sess:
                 if restore_epoch is None:
                     sess.run(init)
                     first_epoch = 0

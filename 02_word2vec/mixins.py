@@ -50,7 +50,7 @@ class BoardRecorderMixin:
 
         Args:
             interfal_sec (float): Optional. Specify logging time interval in
-                seconds. Default by 300.
+                seconds. Default to 300.
             per_step (int): Optional. When you specify this argument, this
                 mixin records time taken to execute specified number of step.
             restore_step (int): Optional. When you specify this argument,

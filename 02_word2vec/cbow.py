@@ -217,3 +217,4 @@ class CBOW(BoardRecorderMixin):
                         self.record(sess, writer, step, feed_dict=fd)
                         step += 1
                     self.word_reps.vecs = sess.run(self.W_in)
+                self.record(sess, writer, step, feed_dict=fd, force_write=True)

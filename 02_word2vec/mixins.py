@@ -71,7 +71,7 @@ class BoardRecorderMixin:
         self.last_recording = time.time()
         return sess
 
-    def record(self, sess, writer, step, feed_dict={}):
+    def record(self, sess, writer, step, feed_dict={}, force_write=False):
         """Loggin summary on tensorboard and save model.
 
         Args:
@@ -80,9 +80,11 @@ class BoardRecorderMixin:
                 use to write log on tensorboard.
             step (int): Global step count.
             feed_dict (dit): Feed dictionary to use to evaluate tensor.
+            force_write (bool): If specify `True`, force saving of logs and
+                model. Default to `False`.
         """
         current_time = time.time()
-        if current_time < self.next_recording:
+        if (not force_write) and current_time < self.next_recording:
             return
         summary = self.summary.eval(
             feed_dict={

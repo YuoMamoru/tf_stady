@@ -1,5 +1,5 @@
-from datetime import datetime
 import os
+from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
@@ -178,7 +178,7 @@ class CBOW(BoardRecorderMixin):
                                    datetime.utcnow().strftime('%Y%m%d%H%M%S'))
         if batch_size is None:
             n_batches = 1
-                else:
+        else:
             n_batches = int(np.ceil(self.data_size / batch_size))
         with self.open_writer(log_dir) as writer:
             with self.open_session(per_step=n_batches, interval_sec=30,
@@ -211,4 +211,4 @@ class CBOW(BoardRecorderMixin):
                         sess.run(self.training_op, feed_dict=fd)
                         self.record(sess, writer, step, feed_dict=fd)
                         step += 1
-                self.word_reps.vecs = sess.run(self.W_in)
+                    self.word_reps.vecs = sess.run(self.W_in)

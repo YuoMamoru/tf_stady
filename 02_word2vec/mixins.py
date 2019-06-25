@@ -1,5 +1,5 @@
-import time
 import os
+import time
 
 import tensorflow as tf
 from tensorflow.compat import v1 as tfv1

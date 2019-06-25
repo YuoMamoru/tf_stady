@@ -161,16 +161,20 @@ class CBOW(BoardRecorderMixin):
         self.los_summary = tfv1.summary.scalar('Loss', self.cee)
 
     def train(self, log_dir=None, max_epoch=10000, learning_rate=0.001,
-              batch_size=None, restore_step=None):
+              batch_size=None, interval_sec=300, restore_step=None):
         """Train CBOW model.
 
         Args:
-            log_dir (str): Log directory of Tensorflow
+            log_dir (str): Log directory where log and model is saved.
             max_epoch (int): Size of epoch
             learning_rate (float): Learning rate
             batch_size (int): Batch size when using mini-batch descent method.
                 If specifying a size larger then learning data or `None`,
                 using batch descent.
+            interfal_sec (float): Specify logging time interval in seconds.
+                Default by 300.
+            restore_step (int): When you specify this argument, this mixin
+                resotres model for specified step.
         """
         if log_dir is None:
             log_dir = os.path.join(os.path.dirname(__file__),
@@ -181,7 +185,8 @@ class CBOW(BoardRecorderMixin):
         else:
             n_batches = int(np.ceil(self.data_size / batch_size))
         with self.open_writer(log_dir) as writer:
-            with self.open_session(per_step=n_batches, interval_sec=30,
+            with self.open_session(interval_sec=interval_sec,
+                                   per_step=n_batches,
                                    restore_step=restore_step) as sess:
                 contexts = self.get_contexts()
                 labels = self.get_target()

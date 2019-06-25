@@ -5,10 +5,11 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.compat import v1 as tfv1
 
+from mixins import BoardRecorderMixin
 from word2vec import DistributedRepresentations
 
 
-class CBOW:
+class CBOW(BoardRecorderMixin):
     """Accelerated CBOW model.
 
     Attributes:
@@ -18,6 +19,8 @@ class CBOW:
         word_vectors (:obj:`WordVectors`): Results of model. You can reforence
             after call `train` method.
     """
+
+    model_file_name = 'model.chpt'
 
     @classmethod
     def create_from_text(cls, text):
@@ -60,19 +63,24 @@ class CBOW:
     def get_target(self):
         return np.array(self.corpus[self.window_size:-self.window_size])
 
+    @property
+    def data_size(self):
+        if not hasattr(self, '_data_size'):
+            self._data_size = len(self.corpus) - self.window_size * 2
+        return self._data_size
+
     def fetch_batch(self, contexts, labels, epoch_i, batch_i, batch_size):
-        if batch_size is None or contexts.shape[0] < batch_size:
+        if batch_size is None or self.data_size < batch_size:
             return (
                 contexts,
                 labels,
-                contexts.shape[0],
+                self.data_size,
             )
         if not hasattr(self, 'cl'):
             self.cl = np.concatenate(
                 [contexts, labels.reshape((-1, 1))],
                 axis=1,
             )
-            self.data_size = self.cl.shape[0]
         if batch_i == 0:
             np.random.shuffle(self.cl)
         start_id = batch_size * batch_i
@@ -90,6 +98,8 @@ class CBOW:
             window_size (int): Window size
             hidden_size (int): Dimension of a vector encoding the words
         """
+        if hasattr(self, '_data_size'):
+            del self._data_size
         self.window_size = window_size
         self.hidden_size = hidden_size
         self.learning_rate = tfv1.placeholder(tf.float32, name='learning_rate')
@@ -148,10 +158,10 @@ class CBOW:
         )
         optimizer = tfv1.train.AdamOptimizer(learning_rate=self.learning_rate)
         self.training_op = optimizer.minimize(self.cee)
-        self.cee_summary = tfv1.summary.scalar('CEE', self.cee)
+        self.los_summary = tfv1.summary.scalar('Loss', self.cee)
 
     def train(self, log_dir=None, max_epoch=10000, learning_rate=0.001,
-              batch_size=None, restore_epoch=None):
+              batch_size=None, restore_step=None):
         """Train CBOW model.
 
         Args:
@@ -166,28 +176,28 @@ class CBOW:
             log_dir = os.path.join(os.path.dirname(__file__),
                                    'tf_logs',
                                    datetime.utcnow().strftime('%Y%m%d%H%M%S'))
-        with tfv1.summary.FileWriter(log_dir,
-                                     tfv1.get_default_graph()) as writer:
-            init = tfv1.global_variables_initializer()
-            saver = tfv1.train.Saver()
-            with tfv1.Session() as sess:
-                if restore_epoch is None:
-                    sess.run(init)
-                    first_epoch = 0
+        if batch_size is None:
+            n_batches = 1
                 else:
-                    saver.restore(
-                        sess,
-                        os.path.join(log_dir, f'model.chpt-{restore_epoch}'),
-                    )
-                    first_epoch = restore_epoch
+            n_batches = int(np.ceil(self.data_size / batch_size))
+        with self.open_writer(log_dir) as writer:
+            with self.open_session(per_step=n_batches, interval_sec=30,
+                                   restore_step=restore_step) as sess:
                 contexts = self.get_contexts()
                 labels = self.get_target()
                 self.word_reps = DistributedRepresentations(
                     self.words,
                     sess.run(self.W_in))
-                n_batches = 1 if batch_size is None \
-                    else int(np.ceil(len(labels) / batch_size))
-                for epoch_i in range(first_epoch, max_epoch):
+                step = restore_step or 0
+                if restore_step is None:
+                    writer.add_summary(
+                        self.los_summary.eval(
+                            feed_dict={self.contexts: contexts[:batch_size],
+                                       self.labels: labels[:batch_size]},
+                        ),
+                        step,
+                    )
+                for epoch_i in range(step // self.data_size, max_epoch):
                     for batch_i in range(n_batches):
                         c, l, b = self.fetch_batch(contexts, labels,
                                                    epoch_i, batch_i,
@@ -198,18 +208,7 @@ class CBOW:
                             self.batch_size: b,
                             self.learning_rate: learning_rate,
                         }
-                        if batch_i == 0:
-                            summary_str = self.cee_summary.eval(feed_dict=fd)
-                            writer.add_summary(summary_str, epoch_i)
-                            if epoch_i % 1 == 0:
-                                vectors, cee = sess.run([self.W_in, self.cee],
-                                                        feed_dict=fd)
-                                saver.save(
-                                    sess,
-                                    os.path.join(log_dir, 'model.chpt'),
-                                    global_step=epoch_i,
-                                )
-                                print(f'Epoch {epoch_i:04d}: CEE = {cee}')
-                                self.word_reps.vecs = vectors
                         sess.run(self.training_op, feed_dict=fd)
+                        self.record(sess, writer, step, feed_dict=fd)
+                        step += 1
                 self.word_reps.vecs = sess.run(self.W_in)

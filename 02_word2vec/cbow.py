@@ -121,19 +121,33 @@ class CBOW(BoardRecorderMixin):
             shape=(None, self.window_size*2),
             name='contexts',
         )
-        target = tfv1.placeholder(
+        labels = tfv1.placeholder(
             tf.int32,
             shape=(None,),
             name='labels',
         )
         batch_size = tfv1.placeholder(tf.float32, name='batch_size')
         self.contexts = contexts
-        self.labels = target
+        self.labels = labels
         self.batch_size = batch_size
 
+        cee = tf.reduce_mean(
+            tf.nn.sparse_softmax_cross_entropy_with_logits(
+                labels=labels,
+                logits=self._build_cbow_output(contexts),
+            ), name='CEE',
+        )
+        self.training_op = self._build_optimize_graph(cee)
+        self.los_summary = tfv1.summary.scalar('Loss', cee)
+
+    def _build_optimize_graph(self, cee):
+        optimizer = tfv1.train.AdamOptimizer(learning_rate=self.learning_rate)
+        return optimizer.minimize(cee)
+
+    def _build_cbow_output(self, contexts):
         b, w = contexts.shape
         v, h = self.W_in.shape.as_list()
-        logits = tf.matmul(
+        return tf.matmul(
             tf.reshape(
                 tf.reduce_mean(
                     tf.reshape(
@@ -150,15 +164,6 @@ class CBOW(BoardRecorderMixin):
             ),
             self.W_out,
         )
-        self.cee = tf.reduce_mean(
-            tf.nn.sparse_softmax_cross_entropy_with_logits(
-                labels=target,
-                logits=logits,
-            ), name='CEE',
-        )
-        optimizer = tfv1.train.AdamOptimizer(learning_rate=self.learning_rate)
-        self.training_op = optimizer.minimize(self.cee)
-        self.los_summary = tfv1.summary.scalar('Loss', self.cee)
 
     def train(self, log_dir=None, max_epoch=10000, learning_rate=0.001,
               batch_size=None, interval_sec=300, restore_step=None):

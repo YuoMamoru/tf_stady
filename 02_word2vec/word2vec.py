@@ -76,6 +76,11 @@ class DistributedRepresentations:
         similarity = [[w, self.cos_similarity(query_vec, self.vecs[i])]
                       for i, w in enumerate(self.words)]
         similarity.sort(key=lambda sim: sim[1], reverse=True)
-        for s in similarity[:top]:
-            print(f'  {s[0]}: {s[1]}')
-        print()
+        count = 0
+        for s in similarity:
+            if s[0] not in (a, b, c):
+                print(f'  {s[0]}: {s[1]}')
+                count += 1
+                if top <= count:
+                    print()
+                    break

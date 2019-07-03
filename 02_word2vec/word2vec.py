@@ -196,7 +196,8 @@ class Word2Vec(BoardRecorderMixin):
         raise NotImplementedError
 
     def train(self, log_dir=None, max_epoch=10000, learning_rate=0.001,
-              batch_size=None, interval_sec=300, restore_step=None):
+              batch_size=None, interval_sec=300, restore_step=None,
+              run_metadata=False):
         """Train model.
 
         Args:
@@ -210,6 +211,7 @@ class Word2Vec(BoardRecorderMixin):
                 Default by 300.
             restore_step (int): When you specify this argument, this mixin
                 resotres model for specified step.
+            run_metadata (bool): If true, run metadata and write logs.
         """
         if log_dir is None:
             log_dir = os.path.join(os.path.dirname(__file__),
@@ -219,6 +221,12 @@ class Word2Vec(BoardRecorderMixin):
             n_batches = 1
         else:
             n_batches = int(np.ceil(self.data_size / batch_size))
+        if run_metadata:
+            options = tfv1.RunOptions(trace_level=tfv1.RunOptions.FULL_TRACE)
+            metadata = tfv1.RunMetadata()
+        else:
+            options = None
+            metadata = None
         with self.open_writer(log_dir) as writer:
             with self.open_session(interval_sec=interval_sec,
                                    per_step=n_batches,
@@ -248,7 +256,12 @@ class Word2Vec(BoardRecorderMixin):
                             self.batch_size: b,
                             self.learning_rate: learning_rate,
                         }
-                        sess.run(self.training_op, feed_dict=fd)
+                        sess.run(self.training_op,
+                                 feed_dict=fd,
+                                 options=options,
+                                 run_metadata=metadata)
+                        if run_metadata:
+                            writer.add_run_metadata(metadata, f'step: {step}')
                         self.record(sess, writer, step, feed_dict=fd)
                         step += 1
                     self.word_reps.vecs = sess.run(self.W_in)

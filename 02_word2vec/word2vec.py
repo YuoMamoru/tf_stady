@@ -183,6 +183,12 @@ class Word2Vec(BoardRecorderMixin):
         Args:
             window_size (int): Window size
             hidden_size (int): Dimension of a vector encoding the words
+            ns_count (int): Number of samples using negative sampling.
+                If you specify 0, this object does not use negative sampling
+                and use softmax function. Default to 0.
+            ns_exponent (float): Value of exponent to determine probability of
+                acquiring each vocabulary using Nagative sampling. Default to
+                0.75.
         """
         raise NotImplementedError
 

@@ -53,25 +53,22 @@ class CBOW(Word2Vec):
         """
         self.build_model_params(window_size, hidden_size)
 
-        incomes = tfv1.placeholder(
+        self.incomes = tfv1.placeholder(
             tf.int32,
             shape=(None, self.window_size*2),
             name='incomes',
         )
-        labels = tfv1.placeholder(
+        self.labels = tfv1.placeholder(
             tf.int32,
             shape=(None,),
             name='labels',
         )
-        batch_size = tfv1.placeholder(tf.float32, name='batch_size')
-        self.incomes = incomes
-        self.labels = labels
-        self.batch_size = batch_size
+        self.batch_size = tfv1.placeholder(tf.float32, name='batch_size')
 
         cee = tf.reduce_mean(
             tf.nn.sparse_softmax_cross_entropy_with_logits(
-                labels=labels,
-                logits=self._build_cbow_output(incomes),
+                labels=self.labels,
+                logits=self._build_cbow_output(self.incomes),
             ), name='CEE',
         )
         self.training_op = self._build_optimize_graph(cee)
@@ -100,4 +97,5 @@ class CBOW(Word2Vec):
                 ), [-1, h],
             ),
             self.W_out,
+            name='logits',
         )

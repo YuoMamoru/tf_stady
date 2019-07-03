@@ -53,25 +53,22 @@ class SkipGram(Word2Vec):
         """
         self.build_model_params(window_size, hidden_size)
 
-        incomes = tfv1.placeholder(
+        self.incomes = tfv1.placeholder(
             tf.int32,
             shape=(None,),
             name='incomes',
         )
-        labels = tfv1.placeholder(
+        self.labels = tfv1.placeholder(
             tf.int32,
             shape=(None, self.window_size*2),
             name='labels',
         )
-        batch_size = tfv1.placeholder(tf.float32, name='batch_size')
-        self.incomes = incomes
-        self.labels = labels
-        self.batch_size = batch_size
+        self.batch_size = tfv1.placeholder(tf.float32, name='batch_size')
 
         cee = tf.reduce_mean(
             tf.nn.sparse_softmax_cross_entropy_with_logits(
-                labels=tf.reshape(labels, [-1]),
-                logits=tf.reshape(self._build_sg_output(incomes),
+                labels=tf.reshape(self.labels, [-1]),
+                logits=tf.reshape(self._build_sg_output(self.incomes),
                                   [-1, self.words_size]),
             ), name='CEE',
         )
@@ -83,10 +80,11 @@ class SkipGram(Word2Vec):
         return optimizer.minimize(cee)
 
     def _build_sg_output(self, incomes):
-        return (
+        return tf.multiply(
             tf.matmul(
                 tf.gather(self.W_in, incomes,),
                 self.W_out,
-            )
-            * tf.ones([self.window_size * 2, 1, 1], dtype=tf.float32)
+            ),
+            tf.ones([self.window_size * 2, 1, 1], dtype=tf.float32),
+            name='logits',
         )

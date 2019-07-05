@@ -109,13 +109,13 @@ class Word2Vec(BoardRecorderMixin):
 
     @classmethod
     def create_from_text(cls, text):
-        """Create SimpleCBOW instance form text.
+        """Create Word2Vec instance form text.
 
         Args:
             text (str): text to analyze
 
         Returns:
-            SimpleCBOW: Instance crated
+            Word2Vec: Instance created
         """
         duplicate_words = text.lower().replace('.', ' .').split(' ')
         words = list(set(duplicate_words))
@@ -123,7 +123,7 @@ class Word2Vec(BoardRecorderMixin):
         return cls(words, corpus)
 
     def __init__(self, words, corpus):
-        """Create SimpleCBOW instance form corpus.
+        """Create Word2Vec instance form corpus.
 
         Args:
             words (list): List of words
@@ -178,7 +178,7 @@ class Word2Vec(BoardRecorderMixin):
 
     def build_model(self, window_size=1, hidden_size=5,
                     ns_count=0, ns_exponent=0.75):
-        """Build CBOW graph.
+        """Build Word2Vec graph.
 
         Args:
             window_size (int): Window size

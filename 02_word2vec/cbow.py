@@ -10,7 +10,7 @@ class CBOW(Word2Vec):
 
     Attributes:
         words (list): List of words
-        words_size (int): Size of `words`
+        vocab_size (int): Size of `words`
         corpus (list): Corpus
         word_vectors (:obj:`WordVectors`): Results of model. You can reforence
             after call `train` method.
@@ -44,7 +44,7 @@ class CBOW(Word2Vec):
             end_id - start_id,
         )
 
-    def build_model(self, window_size=1, hidden_size=5,
+    def build_graph(self, window_size=1, hidden_size=5,
                     ns_count=0, ns_exponent=0.75):
         """Build CBOW graph.
 
@@ -118,7 +118,7 @@ class CBOW(Word2Vec):
             prob,
             tf.one_hot(
                 labels,
-                self.words_size,
+                self.vocab_size,
                 on_value=0.0,
                 off_value=1.0,
                 dtype=tf.float32,

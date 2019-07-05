@@ -10,7 +10,7 @@ class SkipGram(Word2Vec):
 
     Attributes:
         words (list): List of words
-        words_size (int): Size of `words`
+        vocab_size (int): Size of `words`
         corpus (list): Corpus
         word_vectors (:obj:`WordVectors`): Results of model. You can reforence
             after call `train` method.
@@ -44,7 +44,7 @@ class SkipGram(Word2Vec):
             end_id - start_id,
         )
 
-    def build_model(self, window_size=1, hidden_size=5,
+    def build_graph(self, window_size=1, hidden_size=5,
                     ns_count=0, ns_exponent=0.75):
         """Build CBOW graph.
 
@@ -76,7 +76,7 @@ class SkipGram(Word2Vec):
         cee = tf.reduce_mean(
             tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=tf.reshape(self.labels, [-1]),
-                logits=tf.reshape(logits, [-1, self.words_size]),
+                logits=tf.reshape(logits, [-1, self.vocab_size]),
             ), name='CEE',
         )
         if ns_count < 1:
@@ -110,7 +110,7 @@ class SkipGram(Word2Vec):
             tf.reduce_prod(
                 tf.one_hot(
                     labels,
-                    self.words_size,
+                    self.vocab_size,
                     on_value=0.0,
                     off_value=1.0,
                     dtype=tf.float32,

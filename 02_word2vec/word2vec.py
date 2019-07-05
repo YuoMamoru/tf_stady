@@ -99,7 +99,7 @@ class Word2Vec(BoardRecorderMixin):
 
     Attributes:
         words (list): List of words
-        words_size (int): Size of `words`
+        vocab_size (int): Size of `words`
         corpus (list): Corpus
         word_vectors (:obj:`WordVectors`): Results of model. You can reforence
             after call `train` method.
@@ -130,10 +130,10 @@ class Word2Vec(BoardRecorderMixin):
             corpus (list): Corpus
         """
         self.words = words
-        self.words_size = len(words)
+        self.vocab_size = len(words)
         self.corpus = corpus
         counter = Counter(corpus)
-        self.counts = np.array([counter[i] for i in range(self.words_size)])
+        self.counts = np.array([counter[i] for i in range(self.vocab_size)])
 
     def get_contexts(self):
         return np.r_[
@@ -164,19 +164,19 @@ class Word2Vec(BoardRecorderMixin):
         self.learning_rate = tfv1.placeholder(tf.float32, name='learning_rate')
 
         self.W_in = tf.Variable(
-            tf.random.uniform([self.words_size, self.hidden_size],
+            tf.random.uniform([self.vocab_size, self.hidden_size],
                               -1.0, 1.0, dtype=tf.float32),
             dtype=tf.float32,
             name='W_in',
         )
         self.W_out = tf.Variable(
-            tf.random.uniform([self.hidden_size, self.words_size],
+            tf.random.uniform([self.hidden_size, self.vocab_size],
                               -1.0, 1.0, dtype=tf.float32),
             dtype=tf.float32,
             name='W_out',
         )
 
-    def build_model(self, window_size=1, hidden_size=5,
+    def build_graph(self, window_size=1, hidden_size=5,
                     ns_count=0, ns_exponent=0.75):
         """Build Word2Vec graph.
 

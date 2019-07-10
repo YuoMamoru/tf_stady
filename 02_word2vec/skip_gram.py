@@ -70,7 +70,6 @@ class SkipGram(Word2Vec):
             shape=(None, self.window_size*2),
             name='labels',
         )
-        self.batch_size = tfv1.placeholder(tf.float32, name='batch_size')
         logits, hidden = self._build_skip_gram(self.incomes)
 
         cee = tf.reduce_mean(

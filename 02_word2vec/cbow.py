@@ -70,7 +70,6 @@ class CBOW(Word2Vec):
             shape=(None,),
             name='labels',
         )
-        self.batch_size = tfv1.placeholder(tf.float32, name='batch_size')
         logits, hidden = self._build_cbow(self.incomes)
 
         cee = tf.reduce_mean(

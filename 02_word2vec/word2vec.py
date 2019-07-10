@@ -259,7 +259,6 @@ class Word2Vec(BoardRecorderMixin):
                         fd = {
                             self.incomes: c,
                             self.labels: l,
-                            self.batch_size: b,
                             self.learning_rate: learning_rate,
                         }
                         sess.run(self.training_op,

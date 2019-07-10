@@ -138,7 +138,10 @@ settings.ini
 models/
 
 # Tensorflow logs
-tf_logs/
+*/tf_logs/*
+!*/tf_logs/.keep
 
 # NumPy data
 *.npy
+
+exe.py

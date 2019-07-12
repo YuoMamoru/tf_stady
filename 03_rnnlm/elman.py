@@ -166,10 +166,13 @@ class Elman(BoardRecorderMixin):
 
     def fetch_batch(self, epoch_i, batch_i, batch_size, jump, incomes, labels):
         data_size = len(self.corpus) - 1
+        if not hasattr(self, '_t'):
+            self._t = 0
         for b in range(batch_size):
             for t in range(self.time_size):
-                incomes[b, t] = self.corpus[(b * jump + t) % data_size]
-                labels[b, t] = self.corpus[(b * jump + t + 1) % data_size]
+                incomes[b, t] = self.corpus[(b * jump + self._t) % data_size]
+                labels[b, t] = self.corpus[(b * jump + self._t + 1) % data_size]
+                self._t += 1
         return (incomes, labels)
 
     def train(self, log_dir=None, max_epoch=10000, learning_rate=0.001,

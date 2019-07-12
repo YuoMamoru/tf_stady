@@ -177,7 +177,12 @@ class RNNLM(BoardRecorderMixin):
         if optimizer is None:
             optimizer = tf.train.AdamOptimizer(
                 learning_rate=self.learning_rate)
-        self.training_op = optimizer.minimize(cee)
+        grads_vars = optimizer.compute_gradients(cee, tf.trainable_variables())
+        with tf.name_scope('gradients_clip'):
+            clipped_grads_vars = [
+                (tf.clip_by_norm(grad, 0.25), var) for grad, var in grads_vars
+            ]
+        self.training_op = optimizer.apply_gradients(clipped_grads_vars)
 
     def fetch_batch(self, epoch_i, batch_i, batch_size, jump, incomes, labels):
         data_size = len(self.corpus) - 1

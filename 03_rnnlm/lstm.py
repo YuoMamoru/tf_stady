@@ -59,9 +59,9 @@ class RNNLM(BoardRecorderMixin):
             c_next = tf.add(
                 tf.multiply(c, gate[0]),
                 tf.multiply(gain, gate[1]),
-                name='cell',
+                name='lstm_cell',
             )
-            h_next = tf.multiply(tf.tanh(c_next), gate[2], name='hidden')
+            h_next = tf.multiply(tf.tanh(c_next), gate[2], name='lstm_hidden')
             return (h_next, c_next)
 
     def build_graph(self, wordvec_size=100, hidden_size=100, time_size=5,
@@ -103,7 +103,7 @@ class RNNLM(BoardRecorderMixin):
         )
         self.prev_c = prev_c
 
-        with tf.name_scope('time_embedding'):
+        with tf.name_scope('TimeEmbedding'):
             embed_W = tf.Variable(
                 np.random.randn(self.vocab_size, wordvec_size) / 100,
                 dtype=tf.float32,
@@ -111,7 +111,7 @@ class RNNLM(BoardRecorderMixin):
             )
             xs = tf.gather(embed_W, incomes)
 
-        with tf.name_scope('time_LSTM'):
+        with tf.name_scope('TimeLSTM'):
             self.lstm_Wx = tf.Variable(
                 randn(4, wordvec_size, hidden_size) / sqrt(wordvec_size),
                 dtype=tf.float32,
@@ -142,7 +142,7 @@ class RNNLM(BoardRecorderMixin):
             self.next_h = hs[:, time_size - 1, :]
             self.next_c = time_c[time_size - 1]
 
-        with tf.name_scope('time_affine'):
+        with tf.name_scope('TimeAffine'):
             affine_W = tf.Variable(
                 randn(hidden_size, self.vocab_size) / sqrt(hidden_size),
                 dtype=tf.float32,
@@ -168,7 +168,7 @@ class RNNLM(BoardRecorderMixin):
         )
         self.los_summaries = [
             tf.summary.scalar('Perplexity', tf.math.exp(cee), family='Loss'),
-            tf.summary.scalar('Corss_Entorpy_Error', cee, family='Loss'),
+            tf.summary.scalar('CrossEntorpyError', cee, family='Loss'),
         ]
 
         self.incomes = incomes
@@ -178,7 +178,7 @@ class RNNLM(BoardRecorderMixin):
             optimizer = tf.train.AdamOptimizer(
                 learning_rate=self.learning_rate)
         grads_vars = optimizer.compute_gradients(cee, tf.trainable_variables())
-        with tf.name_scope('gradients_clip'):
+        with tf.name_scope('GradientsClip'):
             clipped_grads_vars = [
                 (tf.clip_by_norm(grad, 0.25), var) for grad, var in grads_vars
             ]
